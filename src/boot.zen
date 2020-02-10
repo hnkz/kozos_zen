@@ -1,0 +1,22 @@
+comptime {
+    asm (
+        \\.section .boot, "ax",@progbits
+        \\.global start
+        \\start:
+        \\  lui sp, 0x80004
+        \\  jal main
+        \\  j .
+    );
+}
+
+extern fn start() noreturn;
+
+export fn main() void {
+    const uart = @import("uart.zen");
+    uart.setup_uart(115200);
+    uart.puts("hello world from Zen\r\n");
+}
+
+export fn abort() noreturn {
+    unreachable;
+}

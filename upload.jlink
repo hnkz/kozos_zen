@@ -1,0 +1,4 @@
+h
+loadfile ./zen-cache/firmware.hex
+r
+q

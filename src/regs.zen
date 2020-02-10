@@ -1,0 +1,9 @@
+pub fn write(reg: usize, data: u32) void {
+    const ptr = @intToPtr(*volatile u32, reg);
+    ptr.* = data;
+}
+
+pub fn read(reg: usize) u32 {
+    const ptr = @intToPtr(*volatile u32, reg);
+    return ptr.*;
+}

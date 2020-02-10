@@ -1,0 +1,21 @@
+const regs = @import("regs.zen");
+
+const GPIOBASE = 0x10012000;
+const GPIO_IOF_EN = GPIOBASE + 0x38;
+const GPIO_IOF_SEL = GPIOBASE + 0x3C;
+
+pub const IOF_UART0_RX:u32 = (1<<16);
+pub const IOF_UART0_TX:u32 = (1<<17);
+pub const IOF_UART1_RX:u32 = (1<<18);
+pub const IOF_UART1_TX:u32 = (1<<23);
+
+
+pub fn setup_iof(func:u32) void {
+    var sel = regs.read(GPIO_IOF_SEL);
+    sel &= ~(func);
+    regs.write(GPIO_IOF_SEL, sel);
+
+    var en = regs.read(GPIO_IOF_EN);
+    en |= func;
+    regs.write(GPIO_IOF_EN, en);
+}

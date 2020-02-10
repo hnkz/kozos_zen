@@ -1,0 +1,39 @@
+const regs = @import("regs.zen");
+
+pub const UART0 = 0x10013000;
+
+const TXDATA:u32 = 0x00;
+const TXCTRL:u32 = 0x08;
+const DIV:u32 = 0x18;
+
+const TXEN:u32 = 0x1;
+const NSTOP:u32 = 0x2;
+
+const HFCLK = 16000000;
+
+
+pub fn setup_uart(baudrate:u32) void {
+    const gpio = @import("gpio.zen");
+
+    gpio.setup_iof(gpio.IOF_UART0_RX|gpio.IOF_UART0_TX);
+
+    var div = HFCLK/baudrate-1;
+    regs.write(UART0+DIV, div);
+
+    regs.write(UART0+TXCTRL, TXEN|NSTOP);
+}
+
+pub fn putc(c:u8) void {
+    while (true) {
+        const txdata = regs.read(UART0+TXDATA);
+        if ((txdata & 0x80000000) == 0)
+            break;
+    }
+    regs.write(UART0+TXDATA, c);
+}
+
+pub fn puts(s: []const u8) void {
+    for (s) | c | {
+        putc(c);
+    }
+}
