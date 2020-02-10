@@ -29,16 +29,18 @@ pub fn build(b: *Builder) !void {
     gen_hex.step.dependOn(&firmware.step);
 
     b.default_step.dependOn(&gen_hex.step);
-
     {
+        // const flash_command = b.addSystemCommand([_][]const u8{
+        //     "JLinkExe",
+        //     "-device", "FE310",
+        //     "-speed", "4000",
+        //     "-if", "JTAG",
+        //     "-jtagconf", "-1,-1",
+        //     "-autoconnect", "1",
+        //     "-CommanderScript", "upload.jlink"
+        // });
         const flash_command = b.addSystemCommand([_][]const u8{
-            "JLinkExe",
-            "-device", "FE310",
-            "-speed", "4000",
-            "-if", "JTAG",
-            "-jtagconf", "-1,-1",
-            "-autoconnect", "1",
-            "-CommanderScript", "upload.jlink"
+            "cp", "zen-cache/firmware.hex", "/media/pythongalo/HiFive"
         });
         flash_command.step.dependOn(&gen_hex.step);
         flash.dependOn(&flash_command.step);
