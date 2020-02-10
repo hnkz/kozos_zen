@@ -1,8 +1,0 @@
-567956 1581304817 70939078 Q-wvnAAU2PaAqudcXsnMfZWQDr4RUkqYmq1uJSPm3iE41ej6Zo2YNQ0Oy98B0YwI /home/pythongalo/work/kozos_zen/src/boot.zen
-567949 1581304788 282939453 Tvi9_eTkFzcMfw3yV-j30R3N2d_eACD6mtBACpOibODmXpi4zM-D6qT_9s7mIBTp /home/pythongalo/work/kozos_zen/src/linker.ld
-550779 1574581173 0 kbjhv9uxzv5wieB9DetzVh8bwWV5bQC7vLglkYOcWxNlLQy_WptZaXFPMVFfKk4i /home/pythongalo/.bin/lib/zen/std/std.zen
-550799 1574581173 0 20NAQCcXGNm_BDicL2nHIsV85EJopoij5FU2OMSQShLU4ewjvxq9iPZ-jLiSOBrm /home/pythongalo/.bin/lib/zen/std/builtin.zen
-551040 1574581173 0 U--9q0MbKn60fHRZr-a6gvxozrOMsxMqSLMFHa32ozttrBZ4w5vXOc8SOfYhVlHI /home/pythongalo/.bin/lib/zen/std/target.zen
-567998 1581305094 2935467 Ldoeq0bEmoCNIgDoHJpYwLYtgdc6nB9kinsKGRjUSBToUqXdrJlpECFq2s8Hd2zs /home/pythongalo/work/kozos_zen/src/uart.zen
-567990 1581305079 878935651 RGsL-dWHguBdEcFld0NpuG0KwHIxgYlXfA2Eids1eSlkRJQNMJ4sXfEdxe8y6CHp /home/pythongalo/work/kozos_zen/src/gpio.zen
-567996 1581304879 154938268 lpzi5HrW0qHk2doHDGinKReO40nJb1Z5cF3aDhFXQMADa27JWIRWYC47piqRCIt1 /home/pythongalo/work/kozos_zen/src/regs.zen
