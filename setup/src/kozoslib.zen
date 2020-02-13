@@ -1,0 +1,16 @@
+const uart = @import("uart.zen");
+
+pub fn putxval(value: u32, column: u32) void {
+    var buf = [9]u8{0, 0, 0, 0, 0, 0, 0, 0, 0};
+    var val = value;
+    var col = column;
+    var index: usize = buf.len - 1;
+
+    while(val > 0 or col > 0) {
+        buf[index] = "0123456789abcdef"[val & 0xf];
+        index -= 1;
+        val >>= 4;
+        if (col > 0) col-=1;
+    }
+    uart.puts(buf);
+}

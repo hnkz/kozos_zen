@@ -13,8 +13,12 @@ extern fn start() noreturn;
 
 export fn main() void {
     const uart = @import("uart.zen");
+    const lib = @import("kozoslib.zen");
+
     uart.setup_uart(115200);
-    uart.puts("hello world from Zen\r\n");
+    uart.puts("hello world from Zen ^^\r\n");
+    uart.puts("こんにちは ^^\r\n");
+    lib.putxval(100, 6);
 }
 
 export fn abort() noreturn {
