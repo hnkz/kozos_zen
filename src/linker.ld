@@ -10,6 +10,13 @@ SECTIONS
 {
     .boot : {} > rom
     .text : { *(.text*) } > rom
-    .rodata : {*(.rodata*)} > rom
+    .rodata : {
+        *(.strings)
+        *(.rodata)
+        *(.rodata*)
+    } > rom
+    .data : {
+        *(.data)
+    } > ram
     .bss : {*(.bss*)} > ram
 }
