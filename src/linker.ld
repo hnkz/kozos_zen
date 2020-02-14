@@ -1,7 +1,9 @@
 MEMORY
 {
-    rom : ORIGIN = 0x20010000, LENGTH = 0x6a120
-    ram : ORIGIN = 0x80000000, LENGTH = 0x4000
+    rom(rx)     : o = 0x20010000, l = 0x30000000
+    ram(rwx)    : o = 0x80000000, l = 0x00004000
+    data(rwx)   : o = 0x80000000, l = 0x00001000
+    stack(rw)   : o = 0x80004000, l = 0x00000000
 }
 
 ENTRY(start)
@@ -9,14 +11,33 @@ ENTRY(start)
 SECTIONS
 {
     .boot : {} > rom
-    .text : { *(.text*) } > rom
+    .text : {
+        _text_start = .;
+        *(.text*)
+        e_etext = .;
+    } > rom
     .rodata : {
+        _rodata_start = .;
         *(.strings)
         *(.rodata)
         *(.rodata*)
+        _erodata = .;
     } > rom
     .data : {
+        _data_start = .;
         *(.data)
-    } > ram
-    .bss : {*(.bss*)} > ram
+        *(.sdata)
+        _edata = .;
+    } > data AT>rom
+    .bss : {
+        _bss_start = .;
+        *(.bss*)
+        _ebss = .;
+    } > data AT>rom
+    
+    . = ALIGN(4);
+    _end = .;
+    .stack : {
+        _stack = .;
+    } > stack
 }

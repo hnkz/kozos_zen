@@ -1,3 +1,6 @@
+const mem = @import("std").mem;
+const builtin = @import("std").builtin;
+
 comptime {
     asm (
         \\.section .boot, "ax",@progbits
@@ -7,9 +10,29 @@ comptime {
         \\  jal main
         \\  j .
     );
+    @export("_erodata", u32, builtin.GlobalLinkage.Strong);
+    @export("_data_start", u32, builtin.GlobalLinkage.Strong);
+    @export("_edata", u32, builtin.GlobalLinkage.Strong);
+    @export("_bss_start", u32, builtin.GlobalLinkage.Strong);
+    @export("_ebss", u32, builtin.GlobalLinkage.Strong);
 }
 
 extern fn start() noreturn;
+extern var _erodata: u32;
+extern var _data_start: u32;
+extern var _edata: u32;
+extern var _bss_start: u32;
+extern var _ebss: u32;
+
+
+var a: u32 = 1;
+
+fn init() void {
+    const data_size: usize = @ptrToInt(&_edata) - @ptrToInt(&_data_start);
+    const bss_size: usize = @ptrToInt(&_ebss) - @ptrToInt(&_bss_start);
+    mem.copy(u8, @ptrCast([*]u8, &_data_start)[0..data_size], @ptrCast([*]u8, &_erodata)[0..data_size]);
+    mem.secureZero(u8, @ptrCast([*]u8, &_bss_start)[0..bss_size]);
+}
 
 export fn main() void {
     const uart = @import("uart.zen");
@@ -17,10 +40,17 @@ export fn main() void {
 
     uart.setup_uart(115200);
     uart.puts("hello world from Zen ^^\r\n");
+    lib.putxval(@ptrToInt(&_data_start), 0);
+    init();
     uart.puts("こんにちは ^^\r\n");
-    lib.putxval(100, 6);
+    lib.putxval(a, 0);
+    uart.puts("\r\n");
+    a = 2;
+    lib.putxval(a, 0);
+    uart.puts("\r\n");
 }
 
 export fn abort() noreturn {
+
     unreachable;
 }
