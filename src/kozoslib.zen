@@ -1,7 +1,7 @@
 const uart = @import("uart.zen");
 
 pub fn putxval(value: u32, column: u32) void {
-    var buf = [9]u8{0, 0, 0, 0, 0, 0, 0, 0, 0};
+    var buf: [10]u8 = [_]u8{0} ** 10;
     var val = value;
     var col = column;
     var index: usize = buf.len - 1;
@@ -12,5 +12,45 @@ pub fn putxval(value: u32, column: u32) void {
         val >>= 4;
         if (col > 0) col-=1;
     }
-    uart.puts(buf);
+    puts(buf);
+}
+
+pub fn putc(c: u8) void {
+    if(c == '\n') {
+        uart.send_byte('\r');
+    }
+    uart.send_byte(c);
+}
+
+pub fn puts(s: []const u8) void {
+    for(s) | c | {
+        putc(c);
+    }
+}
+
+pub fn getc() u8 {
+    var data: u8 = while(true) {
+        if(uart.recv_byte()) |b| {
+            break b;
+        }
+    } else 0;
+    if(data == '\r') {
+        putc(data);
+        data = '\n';
+    }
+    putc(data);
+    return data;
+}
+
+pub fn gets(buf: []u8) usize {
+    var i: usize = 0;
+    while(i < buf.len) {
+        const c = getc();
+        if(c == '\n') {
+            break;
+        }
+        buf[i] = c;
+        i += 1;
+    }
+    return i;
 }
