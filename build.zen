@@ -2,100 +2,72 @@ const std = @import("std");
 const Builder = std.build.Builder;
 const RunStep = std.build.RunStep;
 const Target = std.build.Target;
+const Step = std.build.Step;
 const builtin = @import("builtin");
 
 pub fn build(b: *Builder) !void {
+    // default build
+    const target = try Target.parse("riscv32-freestanding-elfv2");
+    const firmware = b.addExecutable("firmware", "src/boot.zen");
+    firmware.setLinkerScriptPath("src/linker.ld");
+    firmware.setBuildMode(builtin.Mode.Debug); 
+    firmware.setTheTarget(target);
+    firmware.setOutputDir("zen-cache");
+    b.default_step.dependOn(&firmware.step);
+    // Convert elf to Intel HEX format because nrfjprog requires this format.
+    const gen_hex = b.addSystemCommand([_][]const u8{
+        "objcopy", firmware.getOutputPath(),
+        "-O", "ihex",
+        "zen-cache/firmware.hex",
+    });
+    // Converting to HEX file requires compiled `elf` file.
+    gen_hex.step.dependOn(&firmware.step);
+    b.default_step.dependOn(&gen_hex.step);
 
     // Add 'flash' command.
-    try flash_build(b);
+    flash_build(b, &gen_hex.step);
     // Add 'debug' command.
-    try startup_gdbserver_build(b);
+    startup_gdbserver_build(b, &gen_hex.step);
 }
 
-pub fn flash_build(b: *Builder) !void {
+pub fn flash_build(b: *Builder, beforeStep: *Step) void {
     const flash = b.step("flash", "Flash the firmware into the target.");
-    const target = try Target.parse("riscv32-freestanding-elfv2");
-
-    const firmware = b.addExecutable("firmware", "src/boot.zen");
-    firmware.setLinkerScriptPath("src/linker.ld");
-    firmware.setBuildMode(builtin.Mode.Debug); 
-    firmware.setTheTarget(target);
-    firmware.setOutputDir("zen-cache");
-
-    b.default_step.dependOn(&firmware.step);
-
-    // Convert elf to Intel HEX format because nrfjprog requires this format.
-    const gen_hex = b.addSystemCommand([_][]const u8{
-        "objcopy", firmware.getOutputPath(),
-        "-O", "ihex",
-        "zen-cache/firmware.hex",
+    const flash_command = b.addSystemCommand([_][]const u8{
+        "JLinkExe",
+        "-device", "FE310",
+        "-speed", "4000",
+        "-if", "JTAG",
+        "-jtagconf", "-1,-1",
+        "-autoconnect", "1",
+        "-CommanderScript", "upload.jlink"
     });
-
-    // Converting to HEX file requires compiled `elf` file.
-    gen_hex.step.dependOn(&firmware.step);
-
-    b.default_step.dependOn(&gen_hex.step);
-    {
-        const flash_command = b.addSystemCommand([_][]const u8{
-            "JLinkExe",
-            "-device", "FE310",
-            "-speed", "4000",
-            "-if", "JTAG",
-            "-jtagconf", "-1,-1",
-            "-autoconnect", "1",
-            "-CommanderScript", "upload.jlink"
-        });
-        flash_command.step.dependOn(&gen_hex.step);
-        flash.dependOn(&flash_command.step);
-    }
+    flash_command.step.dependOn(beforeStep);
+    flash.dependOn(&flash_command.step);
 }
 
-pub fn startup_gdbserver_build(b: *Builder) !void {
-    const flash = b.step("debug", "Start up GDB server.");
-    const target = try Target.parse("riscv32-freestanding-elfv2");
-
-    const firmware = b.addExecutable("firmware", "src/boot.zen");
-    firmware.setLinkerScriptPath("src/linker.ld");
-    firmware.setBuildMode(builtin.Mode.Debug); 
-    firmware.setTheTarget(target);
-    firmware.setOutputDir("zen-cache");
-
-    b.default_step.dependOn(&firmware.step);
-
-    // Convert elf to Intel HEX format because nrfjprog requires this format.
-    const gen_hex = b.addSystemCommand([_][]const u8{
-        "objcopy", firmware.getOutputPath(),
-        "-O", "ihex",
-        "zen-cache/firmware.hex",
+pub fn startup_gdbserver_build(b: *Builder, beforeStep: *Step) void {
+    const startup = b.step("debug", "Start up GDB server.");
+    const flash_command = b.addSystemCommand([_][]const u8{
+        "JLinkExe",
+        "-device", "FE310",
+        "-speed", "4000",
+        "-if", "JTAG",
+        "-jtagconf", "-1,-1",
+        "-autoconnect", "1",
+        "-CommanderScript", "upload.jlink"
     });
+    flash_command.step.dependOn(beforeStep);
 
-    // Converting to HEX file requires compiled `elf` file.
-    gen_hex.step.dependOn(&firmware.step);
-
-    b.default_step.dependOn(&gen_hex.step);
-    {
-        const flash_command = b.addSystemCommand([_][]const u8{
-            "JLinkExe",
-            "-device", "FE310",
-            "-speed", "4000",
-            "-if", "JTAG",
-            "-jtagconf", "-1,-1",
-            "-autoconnect", "1",
-            "-CommanderScript", "upload.jlink"
-        });
-        flash_command.step.dependOn(&gen_hex.step);
-
-        const startup_gdbserver_command = b.addSystemCommand([_][]const u8{
-            "JLinkGDBServerExe",
-            "-select", "USB",
-            "-device", "FE310",
-            "-speed", "4000",
-            "-endian", "little",
-            "-if", "JTAG",
-            "-noir",
-            "-noLocalhostOnly"
-        });
-        startup_gdbserver_command.step.dependOn(&flash_command.step);
-        flash.dependOn(&startup_gdbserver_command.step);
-    }
+    const startup_gdbserver_command = b.addSystemCommand([_][]const u8{
+        "JLinkGDBServerExe",
+        "-select", "USB",
+        "-device", "FE310",
+        "-speed", "4000",
+        "-endian", "little",
+        "-if", "JTAG",
+        "-noir",
+        "-noLocalhostOnly"
+    });
+    startup_gdbserver_command.step.dependOn(&flash_command.step);
+    startup.dependOn(&startup_gdbserver_command.step);
 }
