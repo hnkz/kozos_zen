@@ -30,49 +30,21 @@ pub fn setup_uart(baudrate:u32) void {
     regs.write(UART0+RXCTRL, RXEN);
 }
 
-pub fn putc(c:u8) void {
+pub fn send_byte(b: u8) void {
     while (true) {
         const txdata = regs.read(UART0+TXDATA);
         if ((txdata & TX_FULL) == 0)
             break;
     }
-    regs.write(UART0+TXDATA, c);
+    regs.write(UART0+TXDATA, b);
 }
 
-pub fn puts(s: []const u8) void {
-    for(s) | c | {
-        if(c == '\n') {
-            putc('\r');
-        }
-        putc(c);
+pub fn recv_byte() ?u8 {
+    const rxdata = regs.read(UART0+RXDATA);
+    if ((rxdata & RX_EMPT) == 0) {
+        const data = @intCast(u8, rxdata & RX_DATA);
+        return data;
+    } else {
+        return null;
     }
-}
-
-pub fn getc() u8 {
-    while(true) {
-        const rxdata = regs.read(UART0+RXDATA);
-        if ((rxdata & RX_EMPT) == 0) {
-            var data = @intCast(u8, rxdata & RX_DATA);
-            if(data == '\r') {
-                putc(data);
-                data = '\n';
-            }
-            putc(data);
-            return data;
-        }
-    }
-}
-
-pub fn gets(buf: []u8) usize {
-    var i: usize = 0;
-    while(i < buf.len) {
-        const c = getc();
-        if(c == '\n') {
-            buf[i] = '\x00';
-            break;
-        }
-        buf[i] = c;
-        i += 1;
-    }
-    return i;
 }
