@@ -1,6 +1,8 @@
 const mem = @import("std").mem;
 const builtin = @import("std").builtin;
 const uart = @import("uart.zen");
+const xmodem = @import("xmodem.zen");
+const lib = @import("kozoslib.zen");
 
 comptime {
     asm (
@@ -25,10 +27,6 @@ extern var _edata: u32;
 extern var _bss_start: u32;
 extern var _ebss: u32;
 
-
-var a: u32 = 1;
-const b: u32 = 10;
-
 fn init() void {
     const data_size: usize = @ptrToInt(&_edata) - @ptrToInt(&_data_start);
     const bss_size: usize = @ptrToInt(&_ebss) - @ptrToInt(&_bss_start);
@@ -38,21 +36,56 @@ fn init() void {
     uart.setup_uart(115200);
 }
 
+fn dump(buf: [*]u8, size: u32) u32 {
+    var i: u32 = 0;
+    while(i < size) {
+        lib.putxval(buf[i], 2);
+        if((i & 0xf) == 15) {
+            uart.puts("\r\n");
+        } else {
+            if((i & 0xf) == 7){
+                uart.puts(" ");
+            }
+            uart.puts(" ");
+        }
+        i += 1;
+    }
+    uart.puts("\r\n");
+    return 0;
+}
+
+fn wait() void {
+    var i: u32 = 0;
+    while(i < 300000) {
+        i += 1;
+    }
+}
+
 export fn main() void {
-    const lib = @import("kozoslib.zen");
-
     init();
+    uart.puts("kzload (kozos boot loader) started.\n");
 
-    uart.puts("hello world from Zen ^^\r\n");
-    uart.puts("_data_start = "); lib.putxval(@ptrToInt(&_data_start), 0); uart.puts("\r\n");
-    uart.puts("こんにちは ^^\r\n");
-    uart.puts("a = 0x"); lib.putxval(a, 0); uart.puts("\r\n");
-    a = 2;
-    uart.puts("a = 0x"); lib.putxval(a, 0); uart.puts("\r\n");
-    uart.puts("b = 0x"); lib.putxval(b, 0); uart.puts("\r\n");
+    var i: u32 = 1;
+    var buf = [_]u8{0} ** 32;
+    while(true) {
+        lib.putxval(i, 0);
+        uart.puts(" kzload> ");
+        const size: usize = uart.gets(buf[0..buf.len]);
+
+        if(mem.equal(u8, buf[0..size], "load")) {
+            uart.puts("not implemented yet\n");
+        } else if(mem.equal(u8, buf[0..size], "dump")) {
+            uart.puts("size: ");
+            // lib.putxval(size, 0);
+            uart.puts("\n");
+            // dump(@ptrCast([*]u8, &buf), buf.len);
+        } else {
+            uart.puts("not found command!\n");
+        }
+        i += 1;
+    }
 }
 
 export fn abort() noreturn {
-
     unreachable;
 }

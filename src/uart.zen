@@ -3,11 +3,17 @@ const regs = @import("regs.zen");
 pub const UART0 = 0x10013000;
 
 const TXDATA:u32 = 0x00;
+const RXDATA:u32 = 0x04;
 const TXCTRL:u32 = 0x08;
+const RXCTRL:u32 = 0x0c;
 const DIV:u32 = 0x18;
 
 const TXEN:u32 = 0x1;
+const RXEN:u32 = 0x1;
 const NSTOP:u32 = 0x2;
+const TX_FULL:u32 = 0x80000000;
+const RX_EMPT:u32 = 0x80000000;
+const RX_DATA:u32 = 0x00000ff;
 
 const HFCLK = 16000000;
 
@@ -21,19 +27,52 @@ pub fn setup_uart(baudrate:u32) void {
     regs.write(UART0+DIV, div);
 
     regs.write(UART0+TXCTRL, TXEN|NSTOP);
+    regs.write(UART0+RXCTRL, RXEN);
 }
 
 pub fn putc(c:u8) void {
     while (true) {
         const txdata = regs.read(UART0+TXDATA);
-        if ((txdata & 0x80000000) == 0)
+        if ((txdata & TX_FULL) == 0)
             break;
     }
     regs.write(UART0+TXDATA, c);
 }
 
 pub fn puts(s: []const u8) void {
-    for (s) | c | {
+    for(s) | c | {
+        if(c == '\n') {
+            putc('\r');
+        }
         putc(c);
     }
+}
+
+pub fn getc() u8 {
+    while(true) {
+        const rxdata = regs.read(UART0+RXDATA);
+        if ((rxdata & RX_EMPT) == 0) {
+            var data = @intCast(u8, rxdata & RX_DATA);
+            if(data == '\r') {
+                data = '\n';
+            }
+            putc(data);
+            return data;
+        }
+    }
+}
+
+pub fn gets(buf: []u8) usize {
+    var i: usize = 0;
+    while(i < buf.len) {
+        const c = getc();
+        if(c == '\n') {
+            buf[i] = '\x00';
+            putc('A');
+            break;
+        }
+        buf[i] = c;
+        i += 1;
+    }
+    return i;
 }
