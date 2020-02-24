@@ -54,6 +54,7 @@ pub fn getc() u8 {
         if ((rxdata & RX_EMPT) == 0) {
             var data = @intCast(u8, rxdata & RX_DATA);
             if(data == '\r') {
+                putc(data);
                 data = '\n';
             }
             putc(data);
@@ -68,7 +69,6 @@ pub fn gets(buf: []u8) usize {
         const c = getc();
         if(c == '\n') {
             buf[i] = '\x00';
-            putc('A');
             break;
         }
         buf[i] = c;
