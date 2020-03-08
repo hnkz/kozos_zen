@@ -47,17 +47,6 @@ pub fn flash_build(b: *Builder, beforeStep: *Step) void {
 
 pub fn startup_gdbserver_build(b: *Builder, beforeStep: *Step) void {
     const startup = b.step("debug", "Start up GDB server.");
-    const flash_command = b.addSystemCommand([_][]const u8{
-        "JLinkExe",
-        "-device", "FE310",
-        "-speed", "4000",
-        "-if", "JTAG",
-        "-jtagconf", "-1,-1",
-        "-autoconnect", "1",
-        "-CommanderScript", "upload.jlink"
-    });
-    flash_command.step.dependOn(beforeStep);
-
     const startup_gdbserver_command = b.addSystemCommand([_][]const u8{
         "JLinkGDBServerExe",
         "-select", "USB",
@@ -68,6 +57,6 @@ pub fn startup_gdbserver_build(b: *Builder, beforeStep: *Step) void {
         "-noir",
         "-noLocalhostOnly"
     });
-    startup_gdbserver_command.step.dependOn(&flash_command.step);
+    startup_gdbserver_command.step.dependOn(beforeStep);
     startup.dependOn(&startup_gdbserver_command.step);
 }

@@ -14,6 +14,7 @@ comptime {
         \\  j .
     );
     @export("_erodata", u32, builtin.GlobalLinkage.Strong);
+    @export("_buffer_start", u32, builtin.GlobalLinkage.Strong);
     @export("_data_start", u32, builtin.GlobalLinkage.Strong);
     @export("_edata", u32, builtin.GlobalLinkage.Strong);
     @export("_bss_start", u32, builtin.GlobalLinkage.Strong);
@@ -22,6 +23,7 @@ comptime {
 
 extern fn start() noreturn;
 extern var _erodata: u32;
+extern var _buffer_start: u32;
 extern var _data_start: u32;
 extern var _edata: u32;
 extern var _bss_start: u32;
@@ -33,54 +35,62 @@ fn init() void {
     mem.copy(u8, @ptrCast([*]u8, &_data_start)[0..data_size], @ptrCast([*]u8, &_erodata)[0..data_size]);
     mem.secureZero(u8, @ptrCast([*]u8, &_bss_start)[0..bss_size]);
 
-    uart.setup_uart(115200);
-}
-
-fn dump(buf: [*]u8, size: u32) u32 {
-    var i: u32 = 0;
-    while(i < size) {
-        lib.putxval(buf[i], 2);
-        if((i & 0xf) == 15) {
-            uart.puts("\r\n");
-        } else {
-            if((i & 0xf) == 7){
-                uart.puts(" ");
-            }
-            uart.puts(" ");
-        }
-        i += 1;
-    }
-    uart.puts("\r\n");
-    return 0;
-}
-
-fn wait() void {
-    var i: u32 = 0;
-    while(i < 300000) {
-        i += 1;
-    }
+    // uart.setup_uart(115200);
+    uart.setup_uart(9600);
 }
 
 export fn main() void {
     init();
-    uart.puts("kzload (kozos boot loader) started.\n");
-
+    lib.puts("kzload (kozos boot loader) started.\n");
     var i: u32 = 1;
-    var buf = [_]u8{0} ** 32;
+    var cmd_buf = [_]u8{0} ** 32;
+    const bufsize: usize = @ptrToInt(&_data_start) - @ptrToInt(&_buffer_start);
+    const loadbuf: [*]u8 = @ptrCast([*]u8, &_buffer_start);
     while(true) {
         lib.putxval(i, 0);
-        uart.puts(" kzload> ");
-        const size: usize = uart.gets(buf[0..buf.len]);
+        lib.puts(" kzload> ");
+        const cmd_size: usize = lib.gets(cmd_buf[0..cmd_buf.len]);
 
-        if(mem.equal(u8, buf[0..size], "load")) {
-            uart.puts("not implemented yet\n");
-        } else if(mem.equal(u8, buf[0..size], "dump")) {
-            uart.puts("size: ");
-            // lib.putxval(size, 0);
-            uart.puts("\n");
-            // dump(@ptrCast([*]u8, &buf), buf.len);
+        if(mem.equal(u8, cmd_buf[0..cmd_size], "load")) {
+            const size_or_err = xmodem.recv(loadbuf);
+            lib.wait();
+            if(size_or_err) | size | {
+                lib.puts("xmodem receive succeeded.\n");
+            } else | err | {
+                lib.puts("[xmodem] error occured!\n");
+                switch (err) {
+                    xmodem.XmodemError.InvalidSoH => {
+                        lib.puts("invalid soh \n");
+                    },
+                    xmodem.XmodemError.TooLongSoHWait => {
+                        lib.puts("too logn soh wait\n");
+                    },
+                    xmodem.XmodemError.CanceledRecv => {
+                        lib.puts("canceled recv\n");
+                    },
+                    xmodem.XmodemError.InvalidBlockNum => {
+                        lib.puts("invalid block num\n");
+                    },
+                    xmodem.XmodemError.InvalidBlockNumCheckSum => {
+                        lib.puts("invalid block num checksum\n");
+                    },
+                    xmodem.XmodemError.InvalidDataCheckSum => {
+                        lib.puts("invalid data checksum\n");
+                    },
+                    xmodem.XmodemError.NoDataAvailable => {
+                        lib.puts("nodata available\n");
+                    }
+                }
+            }
+        } else if(mem.equal(u8, cmd_buf[0..cmd_size], "dump")) {
+            lib.puts("size: ");
+            lib.putxval(bufsize, 0);
+            lib.puts("\n");
+            const dump_size = lib.dump(loadbuf, bufsize);
+        } else if(mem.equal(u8, cmd_buf[0..cmd_size], "")) {
+            lib.puts("\n");
         } else {
-            uart.puts("not found command!\n");
+            lib.puts("unknown!\n");
         }
         i += 1;
     }

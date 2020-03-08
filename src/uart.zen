@@ -6,6 +6,8 @@ const TXDATA:u32 = 0x00;
 const RXDATA:u32 = 0x04;
 const TXCTRL:u32 = 0x08;
 const RXCTRL:u32 = 0x0c;
+const IE:u32 = 0x10;
+const IP:u32 = 0x14;
 const DIV:u32 = 0x18;
 
 const TXEN:u32 = 0x1;
@@ -26,7 +28,8 @@ pub fn setup_uart(baudrate:u32) void {
     var div = HFCLK/baudrate-1;
     regs.write(UART0+DIV, div);
 
-    regs.write(UART0+TXCTRL, TXEN|NSTOP);
+    //regs.write(UART0+TXCTRL, TXEN|NSTOP);
+    regs.write(UART0+TXCTRL, TXEN);
     regs.write(UART0+RXCTRL, RXEN);
 }
 
@@ -46,5 +49,15 @@ pub fn recv_byte() ?u8 {
         return data;
     } else {
         return null;
+    }
+}
+
+pub fn recv_byte2() u8 {
+    while(true) {
+        const rxdata = regs.read(UART0+RXDATA);
+        if((rxdata & RX_EMPT) == 0) {
+            const data = @intCast(u8, rxdata & RX_DATA);
+            return data;
+        }
     }
 }

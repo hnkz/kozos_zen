@@ -1,0 +1,171 @@
+
+const uart = @import("uart.zen");
+const lib = @import("kozoslib.zen");
+
+const XMODEM_SOH = 0x01;
+const XMODEM_STX = 0x02;
+const XMODEM_EOT = 0x04;
+const XMODEM_ACK = 0x06;
+const XMODEM_NAK = 0x15;
+const XMODEM_CAN = 0x18;
+const XMODEM_EOF = 0x1a;
+const XMODEM_BLOCK_SIZE = 128;
+
+pub const XmodemError = error {
+    InvalidSoH,
+    TooLongSoHWait,
+    CanceledRecv,
+    InvalidBlockNum,
+    InvalidBlockNumCheckSum,
+    InvalidDataCheckSum,
+    NoDataAvailable
+};
+
+fn wait_and_getop() u8 {
+    var count: u32 = 0;
+    while(true) {
+        const op_or_err: ?u8 = uart.recv_byte();
+        if(op_or_err) |op| {
+            return op;
+        }
+        count += 1;
+        if(count >= 300000) {
+            count = 0;
+            // lib.puts("NAK!\n");
+            uart.send_byte(XMODEM_NAK);
+        }
+    }
+}
+
+fn read_block(valid_block_num: u8, buf: []u8) XmodemError!u32 {
+    var repeat_limit: u32 = 3;
+    var repeat_num: u32 = 0;
+    // block num
+    var block_num_or_null: ?u8 = null;
+    while(block_num_or_null == null and repeat_num < repeat_limit) {
+        block_num_or_null = uart.recv_byte();
+        repeat_num += 1;
+    }
+    if(repeat_num >= repeat_limit) {
+        uart.send_byte(0x71);
+        return XmodemError.NoDataAvailable;
+    }
+    repeat_num = 0;
+    const block_num = block_num_or_null.?;
+    if(valid_block_num != block_num) {
+        return XmodemError.InvalidBlockNum;
+    }
+
+    // block num checksum
+    var num_checksum_or_null: ?u8 = null;
+    while(num_checksum_or_null == null and repeat_num < repeat_limit) {
+        num_checksum_or_null = uart.recv_byte();
+        repeat_num += 1;
+    }
+    if(repeat_num >= repeat_limit) {
+        uart.send_byte(0x72);
+        return XmodemError.NoDataAvailable;
+    }
+    repeat_num = 0;
+    const num_checksum = num_checksum_or_null.?;
+    if(block_num ^ num_checksum != 0xff) {
+        return XmodemError.InvalidBlockNumCheckSum;
+    }
+    var checksum: u8 = 0;
+    var i: usize = 0;
+
+    // data
+    repeat_limit = 10;
+    while(i < XMODEM_BLOCK_SIZE) {
+        var c_or_null: ?u8 = null;
+        while(c_or_null == null and repeat_num < repeat_limit) {
+            c_or_null = uart.recv_byte();
+            repeat_num += 1;
+        }
+        if(repeat_num >= repeat_limit) {
+            uart.send_byte(0x73);
+            return XmodemError.NoDataAvailable;
+        }
+        repeat_num = 0;
+        const c = c_or_null.?;
+        buf[i] = c;
+        checksum += c;
+        // lib.puts("data: ");
+        // lib.putxval(buf[i], 0);
+        // lib.puts("\n");
+        i += 1;
+    }
+
+    // checksum
+    var checksum_or_null: ?u8 = null;
+    while(checksum_or_null == null and repeat_num < repeat_limit) {
+        checksum_or_null = uart.recv_byte();
+        repeat_num += 1;
+    }
+    if(repeat_num >= repeat_limit) {
+        return XmodemError.NoDataAvailable;
+    }
+    repeat_num = 0;
+    const valid_checksum = checksum_or_null.?;
+    checksum ^= valid_checksum;
+    if(checksum > 0) {
+        return XmodemError.InvalidDataCheckSum;
+    }
+    return i;
+}
+
+pub fn recv(buf: [*]u8) XmodemError!usize {
+    var block_num: u8 = 1;
+    var size: usize = 0;
+    var op: u8 = 0;
+    while(true) {
+        op = wait_and_getop();
+        // lib.puts("op: ");
+        // lib.putxval(op, 0);
+        // lib.puts("\n");
+        if(op == XMODEM_EOT) {
+            uart.send_byte(XMODEM_ACK);
+            break;
+        } else if(op == XMODEM_CAN) {
+            return XmodemError.CanceledRecv;
+        } else if(op == XMODEM_SOH) {
+            const rsize_or_err: XmodemError!u32 = read_block(block_num, buf[size..size+XMODEM_BLOCK_SIZE]);
+            if(rsize_or_err) |rsize| {
+                lib.putxval(rsize, 0);
+                block_num += 1;
+                size += rsize;
+                uart.send_byte(XMODEM_ACK);
+            } else |err| {
+                uart.send_byte(XMODEM_NAK);
+                switch (err) {
+                    XmodemError.InvalidSoH => {
+                        lib.puts("1 invalid soh \n");
+                    },
+                    XmodemError.TooLongSoHWait => {
+                        lib.puts("2 too logn soh wait\n");
+                    },
+                    XmodemError.CanceledRecv => {
+                        lib.puts("3 canceled recv\n");
+                    },
+                    XmodemError.InvalidBlockNum => {
+                        lib.puts("4 invalid block num\n");
+                    },
+                    XmodemError.InvalidBlockNumCheckSum => {
+                        lib.puts("5 invalid block num checksum\n");
+                    },
+                    XmodemError.InvalidDataCheckSum => {
+                        lib.puts("6 invalid data checksum\n");
+                    },
+                    XmodemError.NoDataAvailable => {
+                        lib.puts("7 nodata available\n");
+                    }
+                }
+            }
+        } else {
+            if(block_num > 1) {
+                return XmodemError.InvalidSoH;
+            }
+        }
+    }
+    return size;
+}
