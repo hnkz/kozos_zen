@@ -2,6 +2,7 @@ const uart = @import("uart.zen");
 
 pub fn dump(buf: [*]u8, size: usize) u32 {
     var i: usize = 0;
+    puts("0x");
     putxval(i, 8);
     puts(" ");
     while(i < size) {
